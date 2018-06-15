@@ -47,13 +47,13 @@ def read_data(fname, count, word2idx,FLAGS):
         if nid == 1:
             story = []
         if '\t' in line:  # question
-            q, a, supporting = line.split('\t')
+            q,  ans, supporting = line.split('\t')
             q = tokenize(q, word2idx)
             pad_len=max(FLAGS.sent_size-len(q),0)
             for x in range(pad_len): q.append(word2idx['<pad>'])
             # a = tokenize(a)
             # answer is one vocab word even if it's actually multiple words
-            a = tokenize(a, word2idx)
+            a = tokenize(ans, word2idx)
 
             # substory = None
             # remove question marks

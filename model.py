@@ -3,8 +3,11 @@ import math
 import random
 import numpy as np
 import tensorflow as tf
+from sklearn import metrics
 # from past.builtins import xrange
 import pdb
+
+
 class MemN2N(object):
     def __init__(self, config, sess):
         self.nwords = config.nwords
@@ -14,7 +17,7 @@ class MemN2N(object):
         self.nepoch = config.nepoch
         self.nhop = config.nhop
         self.edim = config.edim
-        self.sent_size=config.sent_size
+        self.sent_size = config.sent_size
         self.mem_size = config.mem_size
         self.lindim = config.lindim
         self.max_grad_norm = config.max_grad_norm
@@ -27,12 +30,11 @@ class MemN2N(object):
             raise Exception(" [!] Directory %s not found" % self.checkpoint_dir)
 
         self.input = tf.placeholder(tf.int32, [None, self.sent_size], name="input")
-        self.time = tf.placeholder(tf.int32, [None, self.mem_size,self.sent_size], name="time")
+        self.time = tf.placeholder(tf.int32, [None, self.mem_size, self.sent_size], name="time")
         self.target = tf.placeholder(tf.float32, [self.batch_size, self.nwords], name="target")
-        self.context = tf.placeholder(tf.int32, [self.batch_size, self.mem_size,self.sent_size], name="context")
+        self.context = tf.placeholder(tf.int32, [self.batch_size, self.mem_size, self.sent_size], name="context")
 
         self.hid = []
-
 
         self.share_list = []
         self.share_list.append([])
@@ -52,11 +54,11 @@ class MemN2N(object):
 
         self.A = tf.Variable(tf.random_normal([self.nwords, self.edim], stddev=self.init_std))
         self.B = tf.Variable(tf.random_normal([self.nwords, self.edim], stddev=self.init_std))
-        self.C = tf.Variable(tf.random_normal([self.batch_size,self.edim, self.edim], stddev=self.init_std))
+        self.C = tf.Variable(tf.random_normal([self.batch_size, self.edim, self.edim], stddev=self.init_std))
 
         # Temporal Encoding
-        self.T_A = tf.Variable(tf.random_normal([self.mem_size*self.sent_size, self.edim], stddev=self.init_std))
-        self.T_B = tf.Variable(tf.random_normal([self.mem_size*self.sent_size, self.edim], stddev=self.init_std))
+        self.T_A = tf.Variable(tf.random_normal([self.mem_size * self.sent_size, self.edim], stddev=self.init_std))
+        self.T_B = tf.Variable(tf.random_normal([self.mem_size * self.sent_size, self.edim], stddev=self.init_std))
 
         # m_i = sum A_ij * x_ij + T_A_i
         Ain_c = tf.nn.embedding_lookup(self.A, self.context)
@@ -68,22 +70,22 @@ class MemN2N(object):
         Bin_t = tf.nn.embedding_lookup(self.T_B, self.time)
         Bin = tf.add(Bin_c, Bin_t)
 
-        Qin=tf.nn.embedding_lookup(self.A,self.input)
+        Qin = tf.nn.embedding_lookup(self.A, self.input)
         self.hid.append(Qin)
 
-        Bin=tf.reduce_sum(Bin,axis=2)
-        Ain=tf.reduce_sum(Ain,axis=2) # for count the sents in memory
+        Bin = tf.reduce_sum(Bin, axis=2)
+        Ain = tf.reduce_sum(Ain, axis=2)  # for count the sents in memory
         # Ain_sents=tf.reduce_sum(Ain,axis=1) for #count the words in each sentences
         # pdb.set_trace()
         for h in xrange(self.nhop):
-            self.hid3dim = self.hid[-1]# tf.reshape(self.hid[-1], [-1, 1, self.edim])
+            self.hid3dim = self.hid[-1]  # tf.reshape(self.hid[-1], [-1, 1, self.edim])
             Aout = tf.matmul(self.hid3dim, Ain, adjoint_b=True)
-            Aout2dim = Aout #tf.reshape(Aout, [-1, self.mem_size])
+            Aout2dim = Aout  # tf.reshape(Aout, [-1, self.mem_size])
             P = tf.nn.softmax(Aout2dim)
 
-            probs3dim = P # tf.reshape(P, [-1, 1, self.mem_size])
+            probs3dim = P  # tf.reshape(P, [-1, 1, self.mem_size])
             Bout = tf.matmul(probs3dim, Bin)
-            Bout2dim = Bout #tf.reshape(Bout, [-1, self.edim])
+            Bout2dim = Bout  # tf.reshape(Bout, [-1, self.edim])
 
             Cout = tf.matmul(self.hid[-1], self.C)
             Dout = tf.add(Cout, Bout2dim)
@@ -95,28 +97,28 @@ class MemN2N(object):
             elif self.lindim == 0:
                 self.hid.append(tf.nn.relu(Dout))
             else:
-                F = tf.slice(Dout, [0, 0, 0], [self.batch_size,self.sent_size,self.lindim])
-                G = tf.slice(Dout, [0,0, self.lindim], [self.batch_size,self.sent_size, self.edim-self.lindim])
+                F = tf.slice(Dout, [0, 0, 0], [self.batch_size, self.sent_size, self.lindim])
+                G = tf.slice(Dout, [0, 0, self.lindim], [self.batch_size, self.sent_size, self.edim - self.lindim])
                 K = tf.nn.relu(G)
                 self.hid.append(tf.concat(axis=2, values=[F, K]))
 
     def build_model(self):
         self.build_memory()
         # pdb.set_trace()
-        out_hid=self.hid[-1]
-        out_hid=tf.reduce_sum(out_hid,axis=1)
+        out_hid = self.hid[-1]
+        out_hid = tf.reduce_sum(out_hid, axis=1)
         self.W = tf.Variable(tf.random_normal([self.edim, self.nwords], stddev=self.init_std))
         z = tf.matmul(out_hid, self.W)
-
+        self.pred = z
         self.loss = tf.nn.softmax_cross_entropy_with_logits(logits=z, labels=self.target)
 
         self.lr = tf.Variable(self.current_lr)
         self.opt = tf.train.GradientDescentOptimizer(self.lr)
 
         params = [self.A, self.B, self.C, self.T_A, self.T_B, self.W]
-        grads_and_vars = self.opt.compute_gradients(self.loss,params)
+        grads_and_vars = self.opt.compute_gradients(self.loss, params)
         clipped_grads_and_vars = [(tf.clip_by_norm(gv[0], self.max_grad_norm), gv[1]) \
-                                   for gv in grads_and_vars]
+                                  for gv in grads_and_vars]
 
         inc = self.global_step.assign_add(1)
         with tf.control_dependencies([inc]):
@@ -130,41 +132,44 @@ class MemN2N(object):
         cost = 0
 
         x = np.ndarray([self.batch_size, self.sent_size], dtype=np.float32)
-        time = np.ndarray([self.batch_size, self.mem_size,self.sent_size], dtype=np.int32)
-        target = np.zeros([self.batch_size, self.nwords]) # one-hot-encoded
-        context = np.ndarray([self.batch_size, self.mem_size,self.sent_size])
+        time = np.ndarray([self.batch_size, self.mem_size, self.sent_size], dtype=np.int32)
+        target = np.zeros([self.batch_size, self.nwords])  # one-hot-encoded
+        context = np.ndarray([self.batch_size, self.mem_size, self.sent_size])
 
         # x.fill(self.init_hid)
 
         for t in xrange(self.mem_size):
             for s in xrange(self.sent_size):
-                time[:,t,s].fill(t*self.sent_size+s)
+                time[:, t, s].fill(t * self.sent_size + s)
 
         if self.show:
             from utils import ProgressBar
             bar = ProgressBar('Train', max=N)
         # pdb.set_trace()
+        targets, predicts = [], []
         for idx in range(N):
             if self.show: bar.next()
             target.fill(0)
             for b in range(self.batch_size):
                 m = random.randrange(0, len(data))
                 context[b] = data[m][0]
-                x[b]=data[m][1]
+                x[b] = data[m][1]
                 target[b][data[m][2][0]] = 1
             # pdb.set_trace()
-            _, loss, self.step = self.sess.run([self.optim,
-                                                self.loss,
-                                                self.global_step],
-                                                feed_dict={
-                                                    self.input: x,
-                                                    self.time: time,
-                                                    self.target: target,
-                                                    self.context: context})
+            _, loss, self.step, predict_ = self.sess.run([self.optim,
+                                                          self.loss,
+                                                          self.global_step, self.pred],
+                                                         feed_dict={
+                                                             self.input: x,
+                                                             self.time: time,
+                                                             self.target: target,
+                                                             self.context: context})
             cost += np.sum(loss)
-
+            predicts.extend(np.argmax(predict_, 1))
+            targets.extend(np.argmax(target, 1))
         if self.show: bar.finish()
-        return cost/N/self.batch_size
+        accuracy = metrics.accuracy_score(targets, predicts)
+        return cost / N / self.batch_size, accuracy
 
     def test(self, data, label='Test'):
         N = int(math.ceil(len(data) / self.batch_size))
@@ -177,13 +182,14 @@ class MemN2N(object):
 
         # x.fill(self.init_hid)
         for t in xrange(self.mem_size):
-            time[:,t].fill(t)
+            time[:, t].fill(t)
 
         if self.show:
             from utils import ProgressBar
             bar = ProgressBar(label, max=N)
 
         m = 0
+        targets, predicts = [], []
         for idx in xrange(N):
             if self.show: bar.next()
             target.fill(0)
@@ -196,35 +202,42 @@ class MemN2N(object):
                 if m >= len(data):
                     m = self.mem_size
 
-            loss = self.sess.run([self.loss], feed_dict={self.input: x,
-                                                         self.time: time,
-                                                         self.target: target,
-                                                         self.context: context})
+            loss, pred = self.sess.run([self.loss, self.pred], feed_dict={self.input: x,
+                                                                          self.time: time,
+                                                                          self.target: target,
+                                                                          self.context: context})
             cost += np.sum(loss)
-
+            predicts.extend(np.argmax(pred, 1))
+            targets.extend(np.argmax(target, 1))
         if self.show: bar.finish()
-        return cost/N/self.batch_size
+        # pdb.set_trace()
+        accuracy = metrics.accuracy_score(targets, predicts)
+        return cost / N / self.batch_size, accuracy
 
     def run(self, train_data, test_data):
         if not self.is_test:
             for idx in xrange(self.nepoch):
-                train_loss = np.sum(self.train(train_data))
-                test_loss = np.sum(self.test(test_data, label='Validation'))
+                train_loss, train_acc = self.train(train_data)
+                test_loss, test_acc = self.test(test_data, label='Validation')
+                train_losses = np.sum(train_loss)
+                test_losses = np.sum(test_loss)
 
                 # Logging
-                self.log_loss.append([train_loss, test_loss])
-                self.log_perp.append([math.exp(train_loss), math.exp(test_loss)])
+                self.log_loss.append([train_losses, test_losses])
+                self.log_perp.append([math.exp(train_losses), math.exp(test_losses)])
 
                 state = {
-                    'perplexity': math.exp(train_loss),
                     'epoch': idx,
-                    'learning_rate': self.current_lr,
-                    'valid_perplexity': math.exp(test_loss)
+                    'lr': self.current_lr,
+                    'train loss': train_losses,
+                    'valid loss': test_losses,  # math.exp(test_loss),
+                    'valid acc:': test_acc,
+                    'train acc:': train_acc
                 }
                 print(state)
 
                 # Learning rate annealing
-                if len(self.log_loss) > 1 and self.log_loss[idx][1] > self.log_loss[idx-1][1] * 0.9999:
+                if len(self.log_loss) > 5 and self.log_loss[idx][1] > self.log_loss[idx - 1][1] * 0.9999:
                     self.current_lr = self.current_lr / 1.5
                     self.lr.assign(self.current_lr).eval()
                 if self.current_lr < 1e-5: break
@@ -232,16 +245,18 @@ class MemN2N(object):
                 if idx % 10 == 0:
                     self.saver.save(self.sess,
                                     os.path.join(self.checkpoint_dir, "MemN2N.model"),
-                                    global_step = self.step.astype(int))
+                                    global_step=self.step.astype(int))
         else:
             self.load()
-
-            valid_loss = np.sum(self.test(train_data, label='Validation'))
-            test_loss = np.sum(self.test(test_data, label='Test'))
+            valid_loss, valid_acc = self.train(train_data)
+            test_loss, test_acc = self.test(test_data, label='Validation')
+            # valid_loss = np.sum(self.test(train_data, label='Validation'))
+            # test_loss = np.sum(self.test(test_data, label='Test'))
 
             state = {
-                'valid_perplexity': math.exp(valid_loss),
-                'test_perplexity': math.exp(test_loss)
+                'valid loss': valid_loss,
+                'test loss': test_loss,
+                'test accuracy': test_acc
             }
             print(state)
 
