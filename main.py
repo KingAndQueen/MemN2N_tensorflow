@@ -10,8 +10,8 @@ pp = pprint.PrettyPrinter()
 flags = tf.app.flags
 
 flags.DEFINE_integer("edim", 150, "internal state dimension [150]")
-flags.DEFINE_integer("lindim", 75, "linear part of the state [75]")
-flags.DEFINE_integer("nhop", 6, "number of hops [6]")
+# flags.DEFINE_integer("lindim", 150, "linear part of the state [75]")
+flags.DEFINE_integer("nhop", 3, "number of hops [6]")
 flags.DEFINE_integer("mem_size", 30,"memory size [100]")
 flags.DEFINE_integer("sent_size", 20,"sentence size [20]")
 flags.DEFINE_integer("batch_size", 32, "batch size to use during training [128]")
@@ -49,9 +49,9 @@ def main(_):
         model.build_model()
 
         if FLAGS.is_test:
-            model.run(valid_data, test_data)
+            model.run(valid_data, test_data,idx2word)
         else:
-            model.run(train_data, valid_data)
+            model.run(train_data, valid_data,idx2word)
 
 if __name__ == '__main__':
     tf.app.run()
