@@ -54,7 +54,7 @@ class MemN2N(object):
 
         self.A = tf.Variable(tf.random_normal([self.nwords, self.edim], stddev=self.init_std),name='A')
         self.B = tf.Variable(tf.random_normal([self.nwords, self.edim], stddev=self.init_std),name='B')
-        self.C = tf.Variable(tf.random_normal([self.batch_size, self.mem_size, self.edim, self.edim], stddev=self.init_std),name='C')
+        # self.C = tf.Variable(tf.random_normal([self.batch_size, self.mem_size, self.edim, 1], stddev=self.init_std),name='C')
 
         # Temporal Encoding
         self.T_A = tf.Variable(tf.random_normal([self.mem_size * self.sent_size, self.edim], stddev=self.init_std),name='T_A')
@@ -83,24 +83,29 @@ class MemN2N(object):
         # Ain = tf.reduce_sum(Ain, axis=2)  # for count the sents in memory
 
         # Ain_sents=tf.reduce_sum(Ain,axis=1) for #count the words in each sentences
-        pdb.set_trace()
+        # pdb.set_trace()
         for h in xrange(self.nhop):
             self.hid3dim = self.hid[-1]  # tf.reshape(self.hid[-1], [-1, 1, self.edim])
-            Aout = tf.matmul(self.hid3dim, Ain, adjoint_b=True)
-            Aout2dim = Aout  # tf.reshape(Aout, [-1, self.mem_size])
-            P = tf.nn.softmax(Aout2dim)
+            Aout = tf.matmul(self.hid3dim, Ain, adjoint_a=True)
+            # Aout2dim = Aout  # tf.reshape(Aout, [-1, self.mem_size])
+            # P = tf.nn.softmax(Aout2dim)
 
-            probs3dim = P  # tf.reshape(P, [-1, 1, self.mem_size])
-            Bout = tf.matmul(probs3dim, Bin)
-            Bout2dim = Bout  # tf.reshape(Bout, [-1, self.edim])
+            # probs3dim = tf.transpose(self.hid3dim, [0,2,1,3])
+            # Bin_=tf.transpose(Bin,[0,2,1,3])
+            Bout = tf.matmul(Bin,Aout)
+            # Bout2dim = Bout  # tf.reshape(Bout, [-1, self.edim])
 
-            Cout = tf.matmul(self.hid[-1], self.C)
-            Dout = tf.add(Cout, Bout2dim)
+            # A_B=tf.concat([Aout,Bout],axis=1)
 
-            self.share_list[0].append(Cout)
+            # Allout = tf.matmul(A_B, self.C)
+            # Allout=tf.squeeze(Allout)
+
+            # Dout = tf.add(Cout, Bout2dim)
+
+            # self.share_list[0].append(Cout)
 
             # if self.lindim == self.edim:
-            self.hid.append(Dout)
+            self.hid.append(Bout)
             # elif self.lindim == 0:
             #     self.hid.append(tf.nn.relu(Dout))
             # else:
@@ -163,7 +168,7 @@ class MemN2N(object):
             # conv1
             with tf.variable_scope('conv1') as scope:
                 kernel = _variable_with_weight_decay('weights',
-                                                     shape=[2, 2, 150, 64],
+                                                     shape=[2, 2, 128, 64],
                                                      stddev=5e-2,
                                                      wd=None)
                 # pdb.set_trace()
@@ -179,28 +184,28 @@ class MemN2N(object):
             norm1 = tf.nn.lrn(pool1, 4, bias=1.0, alpha=0.001 / 9.0, beta=0.75,
                               name='norm1')
             # conv2
-            # with tf.variable_scope('conv2') as scope:
-            #     kernel = _variable_with_weight_decay('weights',
-            #                                          shape=[2, 2, 64, 32],
-            #                                          stddev=5e-2,
-            #                                          wd=None)
-            #     conv = tf.nn.conv2d(norm1, kernel, [1, 1, 1, 1], padding='SAME')
-            #     biases = _variable_on_cpu('biases', [1], tf.constant_initializer(0.1))
-            #     pre_activation = tf.nn.bias_add(conv, biases)
-            #     conv2 = tf.nn.relu(pre_activation, name=scope.name)
-            #
-            #
-            # # norm2
-            # norm2 = tf.nn.lrn(conv2, 4, bias=1.0, alpha=0.001 / 9.0, beta=0.75,
-            #                   name='norm2')
-            # # pool2
-            # pool2 = tf.nn.max_pool(norm2, ksize=[1, 2, 2, 1],
-            #                        strides=[1, 1, 1, 1], padding='SAME', name='pool2')
+            with tf.variable_scope('conv2') as scope:
+                kernel = _variable_with_weight_decay('weights',
+                                                     shape=[2, 2, 64, 20],
+                                                     stddev=5e-2,
+                                                     wd=None)
+                conv = tf.nn.conv2d(norm1, kernel, [1, 2, 2, 1], padding='SAME')
+                biases = _variable_on_cpu('biases', [20], tf.constant_initializer(0.1))
+                pre_activation = tf.nn.bias_add(conv, biases)
+                conv2 = tf.nn.relu(pre_activation, name=scope.name)
+
+
+            # norm2
+            norm2 = tf.nn.lrn(conv2, 4, bias=1.0, alpha=0.001 / 9.0, beta=0.75,
+                              name='norm2')
+            # pool2
+            pool2 = tf.nn.max_pool(norm2, ksize=[1, 2, 2, 1],
+                                   strides=[1, 1, 1, 1], padding='SAME', name='pool2')
             # pdb.set_trace()
 
 
 
-        out_hid=tf.reshape(norm1,[self.batch_size,-1])
+        out_hid=tf.reshape(pool2,[self.batch_size,-1])
         v_d=int(out_hid.get_shape()[-1])
         self.W = tf.Variable(tf.random_normal([v_d, self.nwords], stddev=self.init_std),name='W')
         z = tf.matmul(out_hid, self.W)
