@@ -327,8 +327,8 @@ class MemN2N(object):
                 state = {
                     'epoch': idx,
                     'lr': self.current_lr,
-                    'train loss': train_losses,
-                    'valid loss': test_losses,  # math.exp(test_loss),
+                    # 'train loss': train_losses,
+                    # 'valid loss': test_losses,  # math.exp(test_loss),
                     'valid acc:': test_acc,
                     'train acc:': train_acc
                 }
