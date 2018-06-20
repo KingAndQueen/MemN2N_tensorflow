@@ -58,7 +58,7 @@ class MemN2N(object):
 
         # Temporal Encoding
         self.T_A = tf.Variable(tf.random_normal([self.mem_size * self.sent_size, self.edim], stddev=self.init_std),name='T_A')
-        self.T_B = tf.Variable(tf.random_normal([self.mem_size * self.sent_size, self.edim], stddev=self.init_std),name='T_B')
+        # self.T_B = tf.Variable(tf.random_normal([self.mem_size * self.sent_size, self.edim], stddev=self.init_std),name='T_B')
 
         # m_i = sum A_ij * x_ij + T_A_i
         Ain_c = tf.nn.embedding_lookup(self.A, self.context)
@@ -67,7 +67,7 @@ class MemN2N(object):
 
         # c_i = sum B_ij * u + T_B_i
         Bin_c = tf.nn.embedding_lookup(self.B, self.context)
-        Bin_t = tf.nn.embedding_lookup(self.T_B, self.time)
+        Bin_t = tf.nn.embedding_lookup(self.T_A, self.time)
         Bin = tf.add(Bin_c, Bin_t)
 
         Qin = tf.nn.embedding_lookup(self.A, self.input)
@@ -83,7 +83,7 @@ class MemN2N(object):
         # Ain = tf.reduce_sum(Ain, axis=2)  # for count the sents in memory
 
         # Ain_sents=tf.reduce_sum(Ain,axis=1) for #count the words in each sentences
-        # pdb.set_trace()
+        pdb.set_trace()
         for h in xrange(self.nhop):
             self.hid3dim = self.hid[-1]  # tf.reshape(self.hid[-1], [-1, 1, self.edim])
             Aout = tf.matmul(self.hid3dim, Ain, adjoint_b=True)
@@ -212,7 +212,7 @@ class MemN2N(object):
 
         # params = [self.A, self.B, self.C, self.T_A, self.T_B, self.W ]
         grads_and_vars = self.opt.compute_gradients(self.loss)
-        pdb.set_trace()
+        # pdb.set_trace()
         clipped_grads_and_vars = [(tf.clip_by_norm(gv[0], self.max_grad_norm), gv[1]) \
                                   for gv in grads_and_vars]
 
