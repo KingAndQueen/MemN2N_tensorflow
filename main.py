@@ -40,6 +40,8 @@ def main(_):
     test_data = read_data('%s/%s.test.txt' % (FLAGS.data_dir, FLAGS.data_name), count, word2idx,FLAGS)
 
     idx2word = dict(zip(word2idx.values(), word2idx.keys()))
+    for i in range(FLAGS.mem_size):
+        word2idx['time{}'.format(i + 1)] = 'time{}'.format(i + 1)
     FLAGS.nwords = len(word2idx)
 
     pp.pprint(flags.FLAGS.__flags)

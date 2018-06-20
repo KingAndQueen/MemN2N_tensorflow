@@ -49,26 +49,42 @@ class MemN2N(object):
         self.log_loss = []
         self.log_perp = []
 
+    def position_encoding(self, sentence_size, embedding_size):
+        """
+        Position Encoding described in section 4.1 [1]
+        """
+        encoding = np.ones((embedding_size, sentence_size), dtype=np.float32)
+        ls = sentence_size + 1
+        le = embedding_size + 1
+        for i in range(1, le):
+            for j in range(1, ls):
+                encoding[i - 1, j - 1] = (i - (embedding_size + 1) / 2) * (j - (sentence_size + 1) / 2)
+        encoding = 1 + 4 * encoding / embedding_size / sentence_size
+        # Make position encoding of time words identity to avoid modifying them
+        encoding[:, -1] = 1.0
+        return np.transpose(encoding)
+
     def build_memory(self):
         self.global_step = tf.Variable(0, name="global_step",trainable=False)
 
         self.A = tf.Variable(tf.random_normal([self.nwords, self.edim], stddev=self.init_std),name='A')
-        self.B = tf.Variable(tf.random_normal([self.nwords, self.edim], stddev=self.init_std),name='B')
+        # self.B = tf.Variable(tf.random_normal([self.nwords, self.edim], stddev=self.init_std),name='B')
         # self.C = tf.Variable(tf.random_normal([self.batch_size, self.mem_size, self.edim, 1], stddev=self.init_std),name='C')
 
         # Temporal Encoding
-        self.T_A = tf.Variable(tf.random_normal([self.mem_size * self.sent_size, self.edim], stddev=self.init_std),name='T_A')
+        # self.T_A = tf.Variable(tf.random_normal([self.mem_size * self.sent_size, self.edim], stddev=self.init_std),name='T_A')
         # self.T_B = tf.Variable(tf.random_normal([self.mem_size * self.sent_size, self.edim], stddev=self.init_std),name='T_B')
-
+        self.T_A=self.position_encoding(self.mem_size * self.sent_size,self.edim)
         # m_i = sum A_ij * x_ij + T_A_i
+        # pdb.set_trace()
         Ain_c = tf.nn.embedding_lookup(self.A, self.context)
         Ain_t = tf.nn.embedding_lookup(self.T_A, self.time)
-        Ain = tf.add(Ain_c, Ain_t)
+        Ain =Ain_c*Ain_t
 
         # c_i = sum B_ij * u + T_B_i
-        Bin_c = tf.nn.embedding_lookup(self.B, self.context)
+        Bin_c = tf.nn.embedding_lookup(self.A, self.context)
         Bin_t = tf.nn.embedding_lookup(self.T_A, self.time)
-        Bin = tf.add(Bin_c, Bin_t)
+        Bin = Bin_c*Bin_t
 
         Qin = tf.nn.embedding_lookup(self.A, self.input)
 
@@ -335,8 +351,8 @@ class MemN2N(object):
                 print(state)
 
                 # Learning rate annealing
-                if idx > 5:
-                    self.current_lr = self.current_lr * 0.7
+                if idx > 5 and idx<10:
+                    self.current_lr = self.current_lr * 0.8
                     self.lr.assign(self.current_lr).eval()
                 # if self.current_lr < 1e-5: break
 
