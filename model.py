@@ -335,8 +335,8 @@ class MemN2N(object):
                 print(state)
 
                 # Learning rate annealing
-                if len(self.log_loss) > 5:# and self.log_loss[idx][1] > self.log_loss[idx - 1][1] * 0.9999:
-                    self.current_lr = self.current_lr / 1.5
+                if idx > 5:
+                    self.current_lr = self.current_lr * 0.7
                     self.lr.assign(self.current_lr).eval()
                 # if self.current_lr < 1e-5: break
 
