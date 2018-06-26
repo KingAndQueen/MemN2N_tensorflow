@@ -6,6 +6,7 @@ import pdb
 
 def tokenize(sent, vocab=None):
     if vocab is None:
+
         return [x.strip() for x in re.split('(\W+)?', sent) if x.strip()]
     else:
         words = [x.strip() for x in re.split('(\W+)?', sent) if x.strip()]
@@ -30,10 +31,24 @@ def read_data(word2idx,FLAGS):
         raise ("[!] Data %s not found" % FLAGS.data_dir)
 
     words = []
+
     for line in lines_train:
-        words.extend(tokenize(line))  # .split())
+        nid, line = line.split(' ', 1)
+        if '\t' in line:
+            q, a, supporting = line.split('\t')
+            words.extend(tokenize(q))
+            words.extend(tokenize(a))
+        else:
+            words.extend(tokenize(line))
+    # pdb.set_trace()
     for line in lines_test:
-        words.extend(tokenize(line))
+        nid, line = line.split(' ', 1)
+        if '\t' in line:
+            q, a, supporting = line.split('\t')
+            words.extend(tokenize(q))
+            words.extend(tokenize(a))
+        else:
+            words.extend(tokenize(line))
 
 
     # count.extend(Counter(words).most_common())

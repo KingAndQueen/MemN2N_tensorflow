@@ -24,7 +24,7 @@ flags.DEFINE_float("max_grad_norm", 40, "clip gradients to this norm [50]")
 
 flags.DEFINE_string("checkpoint_dir", "checkpoints", "checkpoint directory [checkpoints]")
 flags.DEFINE_string("data_name", "2", "id of babi data set name [ptb]/[qa]")
-flags.DEFINE_boolean("is_test", True, "True for testing, False for Training [False]")
+flags.DEFINE_boolean("is_test", False, "True for testing, False for Training [False]")
 flags.DEFINE_boolean("show", False, "print progress [False]")
 flags.DEFINE_float("anneal_rate", 25, "Number of epochs between halving the learnign rate.")
 flags.DEFINE_float("anneal_stop_epoch", 100, "Epoch number to end annealed lr schedule.")
