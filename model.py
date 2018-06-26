@@ -7,6 +7,7 @@ from sklearn import metrics
 # from past.builtins import xrange
 import pdb
 
+
 def zero_nil_slot(t, name=None):
     """
     Overwrites the nil_slot (first row) of the input Tensor with zeros.
@@ -14,7 +15,7 @@ def zero_nil_slot(t, name=None):
     The nil_slot is a dummy slot and should not be trained and influence
     the training algorithm.
     """
-    with tf.name_scope( name, "zero_nil_slot",[t]) as name:
+    with tf.name_scope(name, "zero_nil_slot", [t]) as name:
         # pdb.set_trace()
         t = tf.convert_to_tensor(t, name="t")
         s = tf.shape(t)[1]
@@ -22,7 +23,7 @@ def zero_nil_slot(t, name=None):
         return tf.concat(axis=0, values=[z, tf.slice(t, [1, 0], [-1, -1])], name=name)
 
 
-def position_encoding( sentence_size, embedding_size):
+def position_encoding(sentence_size, embedding_size):
     """
     Position Encoding described in section 4.1 [1]
     """
@@ -36,6 +37,7 @@ def position_encoding( sentence_size, embedding_size):
     # # Make position encoding of time words identity to avoid modifying them
     # encoding[:, -1] = 1.0
     return np.transpose(encoding)
+
 
 class MemN2N(object):
     def __init__(self, config, sess):
@@ -78,22 +80,20 @@ class MemN2N(object):
         self.log_loss = []
         self.log_perp = []
 
-
-
     def build_memory(self):
         self.global_step = tf.Variable(0, name="global_step", trainable=False)
-        self.A = tf.Variable(tf.random_normal([self.nwords, self.edim],stddev=0.1),name='A')
-        self.B = tf.Variable(tf.random_normal([self.nwords, self.edim], stddev=0.1),name='B')
+        self.A = tf.Variable(tf.random_normal([self.nwords, self.edim], stddev=0.1), name='A')
+        self.B = tf.Variable(tf.random_normal([self.nwords, self.edim], stddev=0.1), name='B')
         # self.C = tf.Variable(tf.random_normal([self.batch_size, self.mem_size, self.edim, 1], stddev=self.init_std),name='C')
         # self.C = position_encoding(self.mem_size * self.sent_size, self.edim)
         # Temporal Encoding
-        self.T_A = tf.Variable(tf.random_normal([self.mem_size * self.sent_size, self.edim], stddev=0.1),name='T_A',trainable=False)
-        self.T_B = tf.Variable(tf.random_normal([self.mem_size * self.sent_size, self.edim], stddev=0.1),name='T_B',trainable=False)
-        # self.T_A = position_encoding(self.mem_size * self.sent_size,self.edim)
-        # self.T_B = position_encoding(self.mem_size * self.sent_size, self.edim)
+        # self.T_A = tf.Variable(tf.random_normal([self.mem_size * self.sent_size, self.edim], stddev=0.1),name='T_A',trainable=False)
+        # self.T_B = tf.Variable(tf.random_normal([self.mem_size * self.sent_size, self.edim], stddev=0.1),name='T_B',trainable=False)
+        self.T_A = position_encoding(self.mem_size * self.sent_size, self.edim)
+        self.T_B = position_encoding(self.mem_size * self.sent_size, self.edim)
         # m_i = sum A_ij * x_ij + T_A_i
         # pdb.set_trace()
-        self._nil_vars = set([self.A.name]+[self.B.name])#+[self.B.name])
+        self._nil_vars = set([self.A.name] + [self.B.name])  # +[self.B.name])
         Ain_c = tf.nn.embedding_lookup(self.A, self.context)
         Ain_t = tf.nn.embedding_lookup(self.T_A, self.time)
         Ain = Ain_c * Ain_t
@@ -109,7 +109,7 @@ class MemN2N(object):
 
         # pdb.set_trace()
         Qin = tf.expand_dims(Qin, 1)
-        Qin= tf.tile(Qin,[1,self.mem_size,1,1])
+        Qin = tf.tile(Qin, [1, self.mem_size, 1, 1])
         self.hid.append(Qin)
 
         # pdb.set_trace()
@@ -120,17 +120,14 @@ class MemN2N(object):
         # Ain_sents=tf.reduce_sum(Ain,axis=1) for #count the words in each sentences
         # pdb.set_trace()
         for hop in xrange(self.nhop):
-
-
             self.hid3dim = self.hid[-1]  # tf.reshape(self.hid[-1], [-1, 1, self.edim])
             Aout = tf.matmul(self.hid3dim, Ain, adjoint_a=True)
             Aout2dim = Aout  # tf.reshape(Aout, [-1, self.mem_size])
             P = tf.nn.softmax(Aout2dim)
 
-
             # probs3dim = tf.transpose(self.hid3dim, [0,2,1,3])
             # Bin_=tf.transpose(Bin,[0,2,1,3])
-            Bout = tf.matmul(Bin,P)
+            Bout = tf.matmul(Bin, P)
             # Bout2dim = Bout  # tf.reshape(Bout, [-1, self.edim])
 
             # A_B=tf.concat([Aout,Bout],axis=1)
@@ -156,7 +153,7 @@ class MemN2N(object):
         self.global_step = tf.Variable(0, name="global_step", trainable=False)
         with tf.variable_scope('inference'):
 
-            self._init=tf.random_normal_initializer(stddev=0.1)
+            self._init = tf.random_normal_initializer(stddev=0.1)
             # nil_word_slot = tf.zeros([1, self.edim])
             # A = tf.concat(axis=0, values=[ nil_word_slot, self._init([self.nwords-1, self.edim]) ])
             # C = tf.concat(axis=0, values=[ nil_word_slot, self._init([self.nwords-1, self.edim]) ])
@@ -166,7 +163,7 @@ class MemN2N(object):
 
             # Use A_1 for thee question embedding as per Adjacent Weight Sharing
             # self.A_1=tf.Variable(tf.random_normal([self.nwords, self.edim], stddev=self.init_std),name='A_1')
-            self._encoding=tf.constant(position_encoding(self.sent_size,self.edim))
+            self._encoding = tf.constant(position_encoding(self.sent_size, self.edim))
             # C=tf.random_normal([self.nwords, self.edim], stddev=self.init_std)
             self.C = []
             for hopn in range(self.nhop):
@@ -284,38 +281,37 @@ class MemN2N(object):
         #     # norm1
         #     norm1 = tf.nn.lrn(pool1, 4, bias=1.0, alpha=0.001 / 9.0, beta=0.75,
         #                       name='norm1')
-            # conv2
-            # with tf.variable_scope('conv2') as scope:
-            #     kernel = _variable_with_weight_decay('weights',
-            #                                          shape=[2, 2, 64, 20],
-            #                                          stddev=5e-2,
-            #                                          wd=None)
-            #     conv = tf.nn.conv2d(norm1, kernel, [1, 2, 2, 1], padding='SAME')
-            #     biases = _variable_on_cpu('biases', [20], tf.constant_initializer(0.1))
-            #     pre_activation = tf.nn.bias_add(conv, biases)
-            #     conv2 = tf.nn.relu(pre_activation, name=scope.name)
-            #
-            #
-            # # norm2
-            # norm2 = tf.nn.lrn(conv2, 4, bias=1.0, alpha=0.001 / 9.0, beta=0.75,
-            #                   name='norm2')
-            # # pool2
-            # pool2 = tf.nn.max_pool(norm2, ksize=[1, 2, 2, 1],
-            #                        strides=[1, 1, 1, 1], padding='SAME', name='pool2')
-            # # pdb.set_trace()
+        # conv2
+        # with tf.variable_scope('conv2') as scope:
+        #     kernel = _variable_with_weight_decay('weights',
+        #                                          shape=[2, 2, 64, 20],
+        #                                          stddev=5e-2,
+        #                                          wd=None)
+        #     conv = tf.nn.conv2d(norm1, kernel, [1, 2, 2, 1], padding='SAME')
+        #     biases = _variable_on_cpu('biases', [20], tf.constant_initializer(0.1))
+        #     pre_activation = tf.nn.bias_add(conv, biases)
+        #     conv2 = tf.nn.relu(pre_activation, name=scope.name)
+        #
+        #
+        # # norm2
+        # norm2 = tf.nn.lrn(conv2, 4, bias=1.0, alpha=0.001 / 9.0, beta=0.75,
+        #                   name='norm2')
+        # # pool2
+        # pool2 = tf.nn.max_pool(norm2, ksize=[1, 2, 2, 1],
+        #                        strides=[1, 1, 1, 1], padding='SAME', name='pool2')
+        # # pdb.set_trace()
 
 
 
-        out_hid=tf.reshape(out_hid,[self.batch_size,-1])
-        v_d=int(out_hid.get_shape()[-1])
-        self.W = tf.Variable(tf.random_normal([v_d, self.nwords], stddev=self.init_std),name='W')
+        out_hid = tf.reshape(out_hid, [self.batch_size, -1])
+        v_d = int(out_hid.get_shape()[-1])
+        self.W = tf.Variable(tf.random_normal([v_d, self.nwords], stddev=self.init_std), name='W')
         z = tf.matmul(out_hid, self.W)
         self.pred = z
 
-
         self.loss = tf.nn.softmax_cross_entropy_with_logits(logits=z, labels=tf.cast(self.target, tf.float32))
         cross_entropy_sum = tf.reduce_sum(self.loss, name="cross_entropy_sum")
-        self.lr = tf.Variable(self.current_lr,trainable=False)
+        self.lr = tf.Variable(self.current_lr, trainable=False)
         self.opt = tf.train.GradientDescentOptimizer(self.lr)
 
         # params = [self.A, self.B, self.C, self.T_A, self.T_B, self.W ]
@@ -337,7 +333,7 @@ class MemN2N(object):
         tf.global_variables_initializer().run()
         self.saver = tf.train.Saver(tf.global_variables(), max_to_keep=1)
 
-    def train(self, data,idx2word=None):
+    def train(self, data, idx2word=None):
         N = int(math.ceil(len(data) / self.batch_size))
         cost = 0
 
@@ -422,10 +418,10 @@ class MemN2N(object):
         accuracy = metrics.accuracy_score(targets, predicts)
         return cost / N / self.batch_size, accuracy
 
-    def run(self, train_data, test_data,idx2word,FLAGS):
+    def run(self, train_data, test_data, idx2word, FLAGS):
         if not self.is_test:
             for idx in xrange(self.nepoch):
-                train_loss, train_acc = self.train(train_data,idx2word=idx2word)
+                train_loss, train_acc = self.train(train_data, idx2word=idx2word)
                 test_loss, test_acc = self.test(test_data, label='Validation')
                 # train_losses = np.sum(train_loss)
                 # test_losses = np.sum(test_loss)
