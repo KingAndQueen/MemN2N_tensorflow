@@ -21,13 +21,14 @@ flags.DEFINE_float("init_lr", 0.01, "initial learning rate [0.01]")
 # flags.DEFINE_float("init_hid", 0.1, "initial internal state value [0.1]")
 flags.DEFINE_float("init_std", 0.1, "weight initialization std [0.05]")
 flags.DEFINE_float("max_grad_norm", 40, "clip gradients to this norm [50]")
-flags.DEFINE_string("data_dir", "data", "data directory [data]")
+
 flags.DEFINE_string("checkpoint_dir", "checkpoints", "checkpoint directory [checkpoints]")
-flags.DEFINE_string("data_name", "qa2", "data set name [ptb]/[qa]")
+flags.DEFINE_string("data_name", "2", "id of babi data set name [ptb]/[qa]")
 flags.DEFINE_boolean("is_test", False, "True for testing, False for Training [False]")
 flags.DEFINE_boolean("show", False, "print progress [False]")
 flags.DEFINE_float("anneal_rate", 25, "Number of epochs between halving the learnign rate.")
 flags.DEFINE_float("anneal_stop_epoch", 100, "Epoch number to end annealed lr schedule.")
+flags.DEFINE_string("data_dir", "my_data1/", "data directory [data]")
 FLAGS = flags.FLAGS
 
 def main(_):
@@ -37,7 +38,7 @@ def main(_):
     if not os.path.exists(FLAGS.checkpoint_dir):
       os.makedirs(FLAGS.checkpoint_dir)
 
-    train_data,test_data = read_data('%s/%s.' % (FLAGS.data_dir, FLAGS.data_name), word2idx,FLAGS)
+    train_data,test_data = read_data( word2idx,FLAGS)
     train_data,valid_data = model_selection.train_test_split(train_data, test_size=.1)
 
 

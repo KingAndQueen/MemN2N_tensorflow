@@ -13,17 +13,21 @@ def tokenize(sent, vocab=None):
         # pdb.set_trace()
         return indexs
 
-def read_data(fname, word2idx,FLAGS):
-
-    fname_train=fname+'train.txt'
-    fname_test=fname+'test.txt'
+def read_data(word2idx,FLAGS):
+    files = os.listdir(FLAGS.data_dir)
+    files = [os.path.join(FLAGS.data_dir, f) for f in files]
+    s = 'qa{}_'.format(FLAGS.data_name)
+    fname_train = [f for f in files if s in f and 'train' in f][0]
+    fname_test = [f for f in files if s in f and 'test' in f][0]
+    # fname_train=fname+'train.txt'
+    # fname_test=fname+'test.txt'
     if os.path.isfile(fname_train) and os.path.isfile(fname_test):
         train=open(fname_train)
         lines_train = train.readlines()
         test=open(fname_test)
         lines_test=test.readlines()
     else:
-        raise ("[!] Data %s not found" % fname)
+        raise ("[!] Data %s not found" % FLAGS.data_dir)
 
     words = []
     for line in lines_train:

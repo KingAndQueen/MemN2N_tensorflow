@@ -83,7 +83,7 @@ class MemN2N(object):
     def build_memory(self):
         self.global_step = tf.Variable(0, name="global_step", trainable=False)
         self.A = tf.Variable(tf.random_normal([self.nwords, self.edim],stddev=0.1),name='A')
-        # self.B = tf.Variable(tf.random_normal([self.nwords, self.edim], stddev=self.init_std),name='B')
+        self.B = tf.Variable(tf.random_normal([self.nwords, self.edim], stddev=self.init_std),name='B')
         # self.C = tf.Variable(tf.random_normal([self.batch_size, self.mem_size, self.edim, 1], stddev=self.init_std),name='C')
         # self.C = position_encoding(self.mem_size * self.sent_size, self.edim)
         # Temporal Encoding
@@ -93,11 +93,11 @@ class MemN2N(object):
         self.T_B = position_encoding(self.mem_size * self.sent_size, self.edim)
         # m_i = sum A_ij * x_ij + T_A_i
         # pdb.set_trace()
-        self._nil_vars = set(self.A.name)#+[self.B.name])
+        self._nil_vars = set([self.A.name]+[self.B.name])#+[self.B.name])
         Ain_c = tf.nn.embedding_lookup(self.A, self.context)
         Ain_t = tf.nn.embedding_lookup(self.T_A, self.time)
         Ain = Ain_c * Ain_t
-        Bin_c = tf.nn.embedding_lookup(self.A, self.context)
+        Bin_c = tf.nn.embedding_lookup(self.B, self.context)
         Bin_t = tf.nn.embedding_lookup(self.T_B, self.time)
         Bin = Bin_c * Bin_t
         # c_i = sum B_ij * u + T_B_i
@@ -226,64 +226,64 @@ class MemN2N(object):
         # self.hid2word2 = tf.Variable(tf.random_normal([self.batch_size, self.mem_size, 1]))
         # out_hid = tf.matmul(out_hid, self.hid2word2, transpose_a=True)
 
-        with tf.variable_scope('cnn'):
-            def _variable_on_cpu(name, shape, initializer):
-                """Helper to create a Variable stored on CPU memory.
-                Args:
-                  name: name of the variable
-                  shape: list of ints
-                  initializer: initializer for Variable
-                Returns:
-                  Variable Tensor
-                """
-                with tf.device('/cpu:0'):
-                    var = tf.get_variable(name, shape, initializer=initializer, dtype=tf.float32)
-                return var
-
-            def _variable_with_weight_decay(name, shape, stddev, wd):
-                """Helper to create an initialized Variable with weight decay.
-                Note that the Variable is initialized with a truncated normal distribution.
-                A weight decay is added only if one is specified.
-                Args:
-                  name: name of the variable
-                  shape: list of ints
-                  stddev: standard deviation of a truncated Gaussian
-                  wd: add L2Loss weight decay multiplied by this float. If None, weight
-                      decay is not added for this Variable.
-                Returns:
-                  Variable Tensor
-                """
-                var = _variable_on_cpu(
-                    name,
-                    shape,
-                    tf.truncated_normal_initializer(stddev=stddev, dtype=tf.float32))
-                # if wd is not None:
-                #     weight_decay = tf.multiply(tf.nn.l2_loss(var), wd, name='weight_loss')
-                    # tf.add_to_collection('losses', weight_decay)
-                return var
-
-
-
-            context=out_hid
-            # pdb.set_trace()
-            # conv1
-            with tf.variable_scope('conv1') as scope:
-                kernel = _variable_with_weight_decay('weights',
-                                                     shape=[2, 2, 128, 64],
-                                                     stddev=5e-2,
-                                                     wd=None)
-                # pdb.set_trace()
-                conv = tf.nn.conv2d(context, kernel, [1, 2, 2, 1], padding='SAME')
-                biases = _variable_on_cpu('biases', [64], tf.constant_initializer(0.0))
-                pre_activation = tf.nn.bias_add(conv, biases)
-                conv1 = tf.nn.relu(pre_activation, name=scope.name)
-
-            # pool1
-            pool1 = tf.nn.max_pool(conv1, ksize=[1, 2, 2, 1], strides=[1, 3, 2, 1],
-                                   padding='SAME', name='pool1')
-            # norm1
-            norm1 = tf.nn.lrn(pool1, 4, bias=1.0, alpha=0.001 / 9.0, beta=0.75,
-                              name='norm1')
+        # with tf.variable_scope('cnn'):
+        #     def _variable_on_cpu(name, shape, initializer):
+        #         """Helper to create a Variable stored on CPU memory.
+        #         Args:
+        #           name: name of the variable
+        #           shape: list of ints
+        #           initializer: initializer for Variable
+        #         Returns:
+        #           Variable Tensor
+        #         """
+        #         with tf.device('/cpu:0'):
+        #             var = tf.get_variable(name, shape, initializer=initializer, dtype=tf.float32)
+        #         return var
+        #
+        #     def _variable_with_weight_decay(name, shape, stddev, wd):
+        #         """Helper to create an initialized Variable with weight decay.
+        #         Note that the Variable is initialized with a truncated normal distribution.
+        #         A weight decay is added only if one is specified.
+        #         Args:
+        #           name: name of the variable
+        #           shape: list of ints
+        #           stddev: standard deviation of a truncated Gaussian
+        #           wd: add L2Loss weight decay multiplied by this float. If None, weight
+        #               decay is not added for this Variable.
+        #         Returns:
+        #           Variable Tensor
+        #         """
+        #         var = _variable_on_cpu(
+        #             name,
+        #             shape,
+        #             tf.truncated_normal_initializer(stddev=stddev, dtype=tf.float32))
+        #         # if wd is not None:
+        #         #     weight_decay = tf.multiply(tf.nn.l2_loss(var), wd, name='weight_loss')
+        #             # tf.add_to_collection('losses', weight_decay)
+        #         return var
+        #
+        #
+        #
+        #     context=out_hid
+        #     # pdb.set_trace()
+        #     # conv1
+        #     with tf.variable_scope('conv1') as scope:
+        #         kernel = _variable_with_weight_decay('weights',
+        #                                              shape=[2, 2, 128, 64],
+        #                                              stddev=5e-2,
+        #                                              wd=None)
+        #         # pdb.set_trace()
+        #         conv = tf.nn.conv2d(context, kernel, [1, 2, 2, 1], padding='SAME')
+        #         biases = _variable_on_cpu('biases', [64], tf.constant_initializer(0.0))
+        #         pre_activation = tf.nn.bias_add(conv, biases)
+        #         conv1 = tf.nn.relu(pre_activation, name=scope.name)
+        #
+        #     # pool1
+        #     pool1 = tf.nn.max_pool(conv1, ksize=[1, 2, 2, 1], strides=[1, 3, 2, 1],
+        #                            padding='SAME', name='pool1')
+        #     # norm1
+        #     norm1 = tf.nn.lrn(pool1, 4, bias=1.0, alpha=0.001 / 9.0, beta=0.75,
+        #                       name='norm1')
             # conv2
             # with tf.variable_scope('conv2') as scope:
             #     kernel = _variable_with_weight_decay('weights',
@@ -306,7 +306,7 @@ class MemN2N(object):
 
 
 
-        out_hid=tf.reshape(norm1,[self.batch_size,-1])
+        out_hid=tf.reshape(out_hid,[self.batch_size,-1])
         v_d=int(out_hid.get_shape()[-1])
         self.W = tf.Variable(tf.random_normal([v_d, self.nwords], stddev=self.init_std),name='W')
         z = tf.matmul(out_hid, self.W)
